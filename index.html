@@ -1108,12 +1108,23 @@ select option{background:var(--bg3)}
       <div class="gs-step">
         <div class="gs-step-n">3</div>
         <div class="gs-step-body">
-          Paste the Client ID below and click <strong>Connect Google Account</strong>.<br>
-          FinanceDesk will create a Google Sheet called <code>FinanceDesk_Data</code> in your Google Drive automatically.
+          <strong>Host FinanceDesk on GitHub Pages (one time):</strong><br>
+          &nbsp;1. Go to <a href="https://github.com/new" target="_blank">github.com/new</a> → create repo named <code>financedesk</code> (public)<br>
+          &nbsp;2. Upload this <code>FinanceManager.html</code> file → rename it to <code>index.html</code><br>
+          &nbsp;3. Go to repo <strong>Settings → Pages → Source: Deploy from a branch → main → / (root)</strong> → Save<br>
+          &nbsp;4. Your URL will be: <code>https://YOUR-USERNAME.github.io/financedesk/</code><br>
+          &nbsp;5. Enter that URL in the field below — it auto-fills the URIs you need in Google Cloud<br><br>
+          Then paste your Client ID and click <strong>Connect Google Account</strong>.<br>
+          FinanceDesk will auto-create a <code>FinanceDesk_Data</code> spreadsheet in your Google Drive.
         </div>
       </div>
 
       <div class="fg" style="max-width:540px;margin-top:16px">
+        <div class="fi full">
+          <div class="fl">Your GitHub Pages URL * &nbsp;<span style="font-weight:400;color:var(--text3)">(enter this first — it updates the URIs above)</span></div>
+          <input id="gs-pages-url" placeholder="https://YOUR-USERNAME.github.io/financedesk/"
+            style="font-family:var(--mono);font-size:12px" oninput="gsUpdateOriginDisplay()">
+        </div>
         <div class="fi full">
           <div class="fl">Google OAuth Client ID *</div>
           <input id="gs-client-id" placeholder="xxxxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com"
@@ -4517,10 +4528,27 @@ let gsLogItems   = [];
 function gsLoadCfg() { try{return JSON.parse(localStorage.getItem(GS_KEY)||'{}')}catch(e){return{}} }
 function gsSaveCfg(c){ localStorage.setItem(GS_KEY,JSON.stringify(c)); }
 
+function gsUpdateOriginDisplay() {
+  const url = (document.getElementById('gs-pages-url').value.trim()||'https://YOUR-USERNAME.github.io/financedesk/');
+  // Extract origin (scheme + host)
+  try {
+    const u = new URL(url.endsWith('/')?url:url+'/');
+    const origin = u.origin;
+    const originEl = document.getElementById('gs-origin-display');
+    const redirectEl = document.getElementById('gs-redirect-display');
+    if(originEl) originEl.textContent = origin;
+    if(redirectEl) redirectEl.textContent = u.href;
+  } catch(e) {}
+}
+
 function gsSaveClientId() {
   const cid = document.getElementById('gs-client-id').value.trim();
   if(!cid) return toast('Paste your Google OAuth Client ID first','error');
-  const cfg = gsLoadCfg(); cfg.clientId=cid; gsSaveCfg(cfg);
+  const purl = document.getElementById('gs-pages-url') ? document.getElementById('gs-pages-url').value.trim() : '';
+  const cfg = gsLoadCfg();
+  cfg.clientId = cid;
+  if(purl) cfg.pagesUrl = purl;
+  gsSaveCfg(cfg);
   toast('Client ID saved — click Connect Google Account');
 }
 
@@ -4539,8 +4567,13 @@ function gsLoadGIS() {
 async function gsConnect() {
   const clientId = document.getElementById('gs-client-id').value.trim();
   const savedSheetId = document.getElementById('gs-sheet-id-input').value.trim();
+  const pagesUrl = document.getElementById('gs-pages-url') ? document.getElementById('gs-pages-url').value.trim() : '';
   if(!clientId) return toast('Enter your Google OAuth Client ID','error');
+  if(!pagesUrl) return toast('Enter your GitHub Pages URL first','error');
   gsSaveClientId();
+  const cfg = gsLoadCfg();
+  cfg.pagesUrl = pagesUrl;
+  gsSaveCfg(cfg);
   gsSetStatus('syncing','Connecting to Google...');
   try {
     await gsLoadGIS();
@@ -4880,8 +4913,10 @@ async function gsRestoreSession() {
   const cfg=gsLoadCfg();
   const cidEl=document.getElementById('gs-client-id');
   const sidEl=document.getElementById('gs-sheet-id-input');
-  if(cidEl&&cfg.clientId) cidEl.value=cfg.clientId;
-  if(sidEl&&cfg.sheetId)  sidEl.value=cfg.sheetId;
+  const purlEl=document.getElementById('gs-pages-url');
+  if(cidEl&&cfg.clientId)   cidEl.value=cfg.clientId;
+  if(sidEl&&cfg.sheetId)    sidEl.value=cfg.sheetId;
+  if(purlEl&&cfg.pagesUrl)  { purlEl.value=cfg.pagesUrl; gsUpdateOriginDisplay(); }
   if(!cfg.clientId||!cfg.sheetId) { gsShowSetup(); return; }
   // Have config — try silent token refresh
   try {
